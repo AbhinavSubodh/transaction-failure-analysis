@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Payment Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <nav class="bg-indigo-600 text-white p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold tracking-wide">💳 Transaction Sentinel</h1>
+            <span class="text-indigo-200 text-sm">PySpark + MLlib Engine Active</span>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-6 mt-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-indigo-500">
+                <h3 class="text-slate-500 text-sm font-semibold uppercase">Total Transactions Analyzed</h3>
+                <p class="text-3xl font-bold mt-2">{{ data.total_analyzed }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-emerald-500">
+                <h3 class="text-slate-500 text-sm font-semibold uppercase">AI Model Accuracy</h3>
+                <p class="text-3xl font-bold mt-2 text-emerald-600">{{ data.model_accuracy }}%</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 border-l-4 border-l-rose-500">
+                <h3 class="text-slate-500 text-sm font-semibold uppercase">Highest Failure Rate</h3>
+                <p class="text-3xl font-bold mt-2">City Union</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <h2 class="text-xl font-bold mb-4">Historical Failure Aggregation (Hive SQL)</h2>
+                <canvas id="bankChart" height="100"></canvas>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <h2 class="text-xl font-bold mb-4">Live Predictive Engine</h2>
+                <p class="text-sm text-slate-500 mb-6">Score a live transaction against the Random Forest model.</p>
+                
+                <form id="predictForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Transaction Amount (₹)</label>
+                        <input type="number" id="amount" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm p-2 border focus:border-indigo-500 focus:ring-indigo-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Origin Bank</label>
+                        <select id="bank" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm p-2 border focus:border-indigo-500 focus:ring-indigo-500">
+                            <option>SBI</option>
+                            <option>HDFC</option>
+                            <option>ICICI</option>
+                            <option>City Union</option>
+                            <option>IndusInd</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded hover:bg-indigo-700 transition">
+                        Run Risk Analysis
+                    </button>
+                </form>
+
+                <div id="resultBox" class="mt-6 hidden p-4 rounded-lg text-center">
+                    <p class="text-sm font-semibold text-slate-600">Model Prediction:</p>
+                    <h3 id="resultStatus" class="text-xl font-bold mt-1"></h3>
+                    <p id="resultConf" class="text-sm mt-1"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Setup the Chart.js Graph using data from Flask
+        const bankData = {{ data.top_failing_banks | tojson }};
+        const ctx = document.getElementById('bankChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(bankData),
+                datasets: [{
+                    label: 'Total Failed Transactions',
+                    data: Object.values(bankData),
+                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // Handle the ML Form Submission
+        document.getElementById('predictForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = document.getElementById('amount').value;
+            const bank = document.getElementById('bank').value;
+            
+            const res = await fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount, bank })
+            });
+            const data = await res.json();
+            
+            const resultBox = document.getElementById('resultBox');
+            const resultStatus = document.getElementById('resultStatus');
+            const resultConf = document.getElementById('resultConf');
+            
+            resultBox.classList.remove('hidden', 'bg-red-100', 'bg-green-100');
+            
+            if(data.risk_level > 0.6) {
+                resultBox.classList.add('bg-red-100');
+                resultStatus.className = 'text-2xl font-bold mt-1 text-red-700';
+                resultConf.className = 'text-sm mt-1 text-red-600';
+            } else {
+                resultBox.classList.add('bg-green-100');
+                resultStatus.className = 'text-2xl font-bold mt-1 text-green-700';
+                resultConf.className = 'text-sm mt-1 text-green-600';
+            }
+            
+            resultStatus.innerText = data.status;
+            resultConf.innerText = "Confidence: " + data.confidence;
+        });
+    </script>
+</body>
+</html>
